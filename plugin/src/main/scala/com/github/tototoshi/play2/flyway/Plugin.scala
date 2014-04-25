@@ -23,6 +23,7 @@ import com.googlecode.flyway.core.api.MigrationInfo
 import com.googlecode.flyway.core.util.jdbc.DriverDataSource
 import play.core._
 import java.io.FileNotFoundException
+import play.api.db.DB
 
 class Plugin(implicit app: Application) extends play.api.Plugin
     with HandleWebCommandSupport
@@ -51,14 +52,15 @@ class Plugin(implicit app: Application) extends play.api.Plugin
     }
   }
 
-  private val flyways: Map[String, Flyway] = {
+  lazy private val flyways: Map[String, Flyway] = {
     for {
       (dbName, configuration) <- configReader.getDatabaseConfigurations
       migrationFilesLocation = s"db/migration/${dbName}"
       if migrationFileDirectoryExists(migrationFilesLocation)
     } yield {
       val flyway = new Flyway
-      flyway.setDataSource(new DriverDataSource(configuration.driver, configuration.url, configuration.user, configuration.password))
+      val ds = DB.getDataSource(dbName)
+      flyway.setDataSource(ds)
       flyway.setLocations(migrationFilesLocation)
       if (initOnMigrate(dbName)) {
         flyway.setInitOnMigrate(true)

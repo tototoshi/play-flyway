@@ -1,6 +1,7 @@
 import com.typesafe.sbt.SbtScalariform.scalariformSettings
 import sbt._
 import Keys._
+import play.Project._
 
 object ApplicationBuild extends Build {
 
@@ -15,6 +16,7 @@ object ApplicationBuild extends Build {
       resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/",
       libraryDependencies ++= Seq(
         "com.typesafe.play" %% "play" % "2.2.0" % "provided",
+        "com.typesafe.play" %% "play-jdbc" % "2.2.0" % "provided",
         "com.googlecode.flyway" % "flyway-core" % "2.3",
         "org.scalatest" %% "scalatest" % "2.0" % "test"
       ),
@@ -24,6 +26,7 @@ object ApplicationBuild extends Build {
   )
 
   val appDependencies = Seq(
+    jdbc,
     "com.h2database" % "h2" % "[1.3,)",
     "postgresql" % "postgresql" % "9.1-901.jdbc4",
     "com.github.seratch" %% "scalikejdbc" % "1.5.2" % "test",

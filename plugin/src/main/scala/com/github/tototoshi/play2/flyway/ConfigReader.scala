@@ -46,4 +46,8 @@ class ConfigReader(app: Application) extends UrlParser {
 
   }
 
+  def getOutOfOrder: Boolean = {
+    app.configuration.getBoolean("flyway.out-of-order-migrations") getOrElse true
+  }
+
 }

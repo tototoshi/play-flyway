@@ -59,6 +59,7 @@ class Plugin(implicit app: Application) extends play.api.Plugin
       val flyway = new Flyway
       flyway.setDataSource(configuration.url, configuration.user, configuration.password)
       flyway.setLocations(migrationFilesLocation)
+      flyway.setOutOfOrder(configReader.getOutOfOrder)
       if (initOnMigrate(dbName)) {
         flyway.setInitOnMigrate(true)
       }

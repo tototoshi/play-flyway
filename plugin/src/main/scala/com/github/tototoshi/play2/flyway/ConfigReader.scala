@@ -39,5 +39,9 @@ class ConfigReader(app: Application) {
 
   }
 
+  def getOutOfOrder: Boolean = {
+    app.configuration.getBoolean("flyway.out-of-order-migrations") getOrElse true
+  }
+
 }
 

@@ -2,7 +2,9 @@
 
 ![travis](https://api.travis-ci.org/tototoshi/play-flyway.png)
 
-Flyway plugin for Play 2.1 or later. It aims to be a substitute for play-evolutions.
+Flyway plugin for Play 2.1 - 2.3. It aims to be a substitute for play-evolutions.
+
+__For Play 2.4, We will develop Play Module at [flyway/flyway-play](https://github.com/flyway/flyway-play)__
 
 ## Features
 

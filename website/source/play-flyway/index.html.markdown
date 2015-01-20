@@ -164,6 +164,9 @@ $ play -Ddb.default.migration.auto=true start
 
 ## <a class="anchor" name="changelog"></a>Change Log
 
+### 1.2.1
+- Support outOfOrder option (#30)
+
 ### 1.2.0
 - Support Java-based migration (#28)
 

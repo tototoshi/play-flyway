@@ -71,6 +71,9 @@ class Plugin(implicit app: Application) extends play.api.Plugin
     }
   }
 
+  private def outOfOrder(dbName: String): Boolean =
+    app.configuration.getBoolean(s"db.${dbName}.migration.outOfOrder").getOrElse(false)
+
   private lazy val flyways: Map[String, Flyway] = {
     for {
       (dbName, configuration) <- configReader.getDatabaseConfigurations
@@ -92,6 +95,7 @@ class Plugin(implicit app: Application) extends play.api.Plugin
         flyway.setPlaceholderSuffix(suffix)
       }
       flyway.setPlaceholders(placeholders(dbName).asJava)
+      flyway.setOutOfOrder(outOfOrder(dbName))
 
       dbName -> flyway
     }

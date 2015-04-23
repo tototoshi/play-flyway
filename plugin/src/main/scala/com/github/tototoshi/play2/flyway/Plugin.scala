@@ -110,7 +110,7 @@ class Plugin(implicit app: Application) extends play.api.Plugin
           |${readInputStreamToString(in)}""".stripMargin
     }.orElse {
       import scala.util.control.Exception._
-      allCatch opt { Class.forName(migration.getScript) } map { cls =>
+      allCatch opt { app.classloader.loadClass(migration.getScript) } map { cls =>
         s"""|--- ${migration.getScript} ---
             | (Java-based migration)""".stripMargin
       }

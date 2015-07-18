@@ -18,7 +18,7 @@ __For Play 2.4, We will develop Play Module at [flyway/flyway-play](https://gith
 In Build.scala/build.sbt
 
 ```scala
-libraryDependencies += "com.github.tototoshi" %% "play-flyway" % "1.2.1"
+libraryDependencies += "com.github.tototoshi" %% "play-flyway" % "1.2.2"
 ```
 
 and write play.plugins.

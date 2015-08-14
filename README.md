@@ -31,7 +31,7 @@ and write play.plugins.
 In Build.scala/build.sbt
 
 ```scala
-libraryDependencies += "com.github.tototoshi" %% "play-flyway" % "1.0.4"
+libraryDependencies += "com.github.tototoshi" %% "play-flyway" % "1.2.2-2.2.x"
 ```
 
 and write play.plugins.

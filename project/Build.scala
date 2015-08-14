@@ -13,13 +13,13 @@ object ApplicationBuild extends Build {
     Seq(
       name := "play-flyway",
       organization := "com.github.tototoshi",
-      version := "1.2.2",
+      version := "1.2.2-2.2.x",
       scalaVersion := "2.10.4",
-      crossScalaVersions := scalaVersion.value :: "2.11.1" :: Nil,
+      //crossScalaVersions := scalaVersion.value :: "2.11.1" :: Nil,
       resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/",
       libraryDependencies ++= Seq(
-        "com.typesafe.play" %% "play" % play.core.PlayVersion.current % "provided",
-        "org.flywaydb" % "flyway-core" % "3.1",
+        "com.typesafe.play" %% "play" % "2.2.3" % "provided",
+        "org.flywaydb" % "flyway-core" % "3.2.1",
         scalatest
       ),
       scalacOptions ++= Seq("-language:_", "-deprecation")
@@ -29,22 +29,22 @@ object ApplicationBuild extends Build {
   val appDependencies = Seq(
     "com.h2database" % "h2" % "[1.3,)",
     "postgresql" % "postgresql" % "9.1-901.jdbc4",
-    "org.scalikejdbc" %% "scalikejdbc-play-plugin" % "2.3.0" % "test",
+    "org.scalikejdbc" %% "scalikejdbc-play-plugin" % "2.2.0" % "test",
     scalatest
   )
 
   val playAppName = "playapp"
   val playAppVersion = "1.0-SNAPSHOT"
 
-  lazy val playapp = Project(
+  lazy val playapp = play.Project(
     playAppName,
-    file("playapp")
-  ).enablePlugins(play.PlayScala).settings(scalariformSettings:_*)
+    playAppVersion,
+    appDependencies,
+    path = file("playapp")
+  ).settings(scalariformSettings:_*)
   .settings(
     resourceDirectories in Test += baseDirectory.value / "conf",
-    scalaVersion := "2.10.4",
-    version := playAppVersion,
-    libraryDependencies ++= appDependencies
+    scalaVersion := "2.10.4"
   )
   .dependsOn(plugin)
   .aggregate(plugin)

@@ -18,11 +18,12 @@ package com.github.tototoshi.play2.flyway
 import play.api._
 import play.api.mvc._
 import play.api.mvc.Results._
-import com.googlecode.flyway.core.Flyway
-import com.googlecode.flyway.core.api.MigrationInfo
-import com.googlecode.flyway.core.util.jdbc.DriverDataSource
+import org.flywaydb.core.Flyway
+import org.flywaydb.core.api.MigrationInfo
 import play.core._
 import java.io.FileNotFoundException
+import org.flywaydb.core.internal.util.jdbc.DriverDataSource
+import scala.collection.JavaConverters._
 
 class Plugin(implicit app: Application) extends play.api.Plugin
     with HandleWebCommandSupport
@@ -38,6 +39,25 @@ class Plugin(implicit app: Application) extends play.api.Plugin
   private def initOnMigrate(dbName: String): Boolean =
     app.configuration.getBoolean(s"db.${dbName}.migration.initOnMigrate").getOrElse(false)
 
+  private def validateOnMigrate(dbName: String): Boolean =
+    app.configuration.getBoolean(s"db.${dbName}.migration.validateOnMigrate").getOrElse(true)
+
+  private def placeholderPrefix(dbName: String): Option[String] =
+    app.configuration.getString(s"db.${dbName}.migration.placeholderPrefix")
+
+  private def placeholderSuffix(dbName: String): Option[String] =
+    app.configuration.getString(s"db.${dbName}.migration.placeholderSuffix")
+
+  private def placeholders(dbName: String): Map[String, String] = {
+    app.configuration.getConfig(s"db.${dbName}.migration.placeholders").map { config =>
+      config.subKeys.map { key => (key -> config.getString(key).getOrElse("")) }.toMap
+    }.getOrElse(Map.empty)
+  }
+
+  private def encoding(dbName: String): String = {
+    app.configuration.getString(s"db.${dbName}.migration.encoding").getOrElse("UTF-8")
+  }
+
   private def migrationFileDirectoryExists(path: String): Boolean = {
     app.resource(path) match {
       case Some(r) => {
@@ -51,18 +71,32 @@ class Plugin(implicit app: Application) extends play.api.Plugin
     }
   }
 
-  private val flyways: Map[String, Flyway] = {
+  private def outOfOrder(dbName: String): Boolean =
+    app.configuration.getBoolean(s"db.${dbName}.migration.outOfOrder").getOrElse(false)
+
+  private lazy val flyways: Map[String, Flyway] = {
     for {
       (dbName, configuration) <- configReader.getDatabaseConfigurations
       migrationFilesLocation = s"db/migration/${dbName}"
       if migrationFileDirectoryExists(migrationFilesLocation)
     } yield {
       val flyway = new Flyway
-      flyway.setDataSource(new DriverDataSource(configuration.driver, configuration.url, configuration.user, configuration.password))
+      flyway.setDataSource(new DriverDataSource(getClass.getClassLoader, configuration.driver, configuration.url, configuration.user, configuration.password))
       flyway.setLocations(migrationFilesLocation)
+      flyway.setValidateOnMigrate(validateOnMigrate(dbName))
+      flyway.setEncoding(encoding(dbName))
       if (initOnMigrate(dbName)) {
-        flyway.setInitOnMigrate(true)
+        flyway.setBaselineOnMigrate(true)
       }
+      for (prefix <- placeholderPrefix(dbName)) {
+        flyway.setPlaceholderPrefix(prefix)
+      }
+      for (suffix <- placeholderSuffix(dbName)) {
+        flyway.setPlaceholderSuffix(suffix)
+      }
+      flyway.setPlaceholders(placeholders(dbName).asJava)
+      flyway.setOutOfOrder(outOfOrder(dbName))
+
       dbName -> flyway
     }
   }
@@ -74,6 +108,12 @@ class Plugin(implicit app: Application) extends play.api.Plugin
     app.resourceAsStream(s"${flywayPrefixToMigrationScript}/${dbName}/${migration.getScript}").map { in =>
       s"""|--- ${migration.getScript} ---
           |${readInputStreamToString(in)}""".stripMargin
+    }.orElse {
+      import scala.util.control.Exception._
+      allCatch opt { app.classloader.loadClass(migration.getScript) } map { cls =>
+        s"""|--- ${migration.getScript} ---
+            | (Java-based migration)""".stripMargin
+      }
     }.getOrElse(throw new FileNotFoundException(s"Migration file not found. ${migration.getScript}"))
   }
 
@@ -117,17 +157,27 @@ class Plugin(implicit app: Application) extends play.api.Plugin
   override def handleWebCommand(request: RequestHeader, sbtLink: SBTLink, path: java.io.File): Option[SimpleResult] = {
 
     val css = {
+      <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css" type="text/css"/>
       <style>
         body {{
-        width: 760px;
-        margin: 20px auto 50px auto;
-        font-family: "Helvetica Neue",Helvetica,Arial,sans-serif
+        font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
         }}
-        h2 {{ color: #000000; }}
-        h3 {{ color: #000080; margin-left: 10px; }}
-        h4 {{ color: #808000; margin-left: 20px; }}
-        .container {{ margin-top: 20px; }}
       </style>
+    }
+
+    val js = {
+      <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+      <script type="text/javascript" src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+    }
+
+    val header = {
+      <div class="navbar" role="navigation">
+        <div class="container">
+          <div class="navbar-header">
+            <a class="navbar-brand" href="/@flyway">play-flyway</a>
+          </div>
+        </div>
+      </div>
     }
 
     request.path match {
@@ -144,8 +194,10 @@ class Plugin(implicit app: Application) extends play.api.Plugin
         flyways.get(dbName).foreach(_.clean())
         Some(Redirect(getRedirectUrlFromRequest(request)))
       }
-      case initPath(dbName) => {
-        flyways.get(dbName).foreach(_.init())
+      case versionedInitPath(dbName, version) => {
+
+        flyways.get(dbName).foreach(_.setBaselineVersion(version))
+        flyways.get(dbName).foreach(_.baseline())
         Some(Redirect(getRedirectUrlFromRequest(request)))
       }
       case showInfoPath(dbName) => {
@@ -179,9 +231,16 @@ class Plugin(implicit app: Application) extends play.api.Plugin
 
         def withRedirectParam(path: String) = path + "?redirect=" + java.net.URLEncoder.encode(request.path, "utf-8")
 
+        val initLinks = for {
+          flyway <- flyways.get(dbName).toList
+          info <- flyway.info().all()
+        } yield {
+          val version = info.getVersion().getVersion()
+          <li><a href={ withRedirectParam(versionedInitPath(dbName, version)) }>version: { version }</a></li>
+        }
+
         val migratePathWithRedirectParam = withRedirectParam(migratePath(dbName))
         val cleanPathWithRedirectParam = withRedirectParam(cleanPath(dbName))
-        val initPathWithRedirectParam = withRedirectParam(initPath(dbName))
 
         val html =
           <html>
@@ -190,15 +249,25 @@ class Plugin(implicit app: Application) extends play.api.Plugin
               { css }
             </head>
             <body>
-              <h1><a href="/@flyway">play-flyway</a></h1>
-              <a href="/">&lt;&lt; Back to app</a>
+              { header }
               <div class="container">
+                <a href="/">&lt;&lt; Back to app</a>
                 <h2>Database: { dbName }</h2>
-                <a style="color: blue;" href={ migratePathWithRedirectParam }>migrate</a>
-                <a style="color: red;" href={ cleanPathWithRedirectParam }>clean</a>
-                <a style="color: red;" href={ initPathWithRedirectParam }>init</a>
+                <a class="btn btn-primary" href={ migratePathWithRedirectParam }>migrate</a>
+                <a class="btn btn-danger" href={ cleanPathWithRedirectParam }>clean</a>
+                <!-- Split button -->
+                <div class="btn-group">
+                  <button type="button" class="btn btn-danger dropdown-toggle" data-toggle="dropdown">
+                    init&nbsp;<span class="caret"></span>
+                  </button>
+                  <ul class="dropdown-menu" role="menu">
+                    { initLinks }
+                  </ul>
+                </div>
+                <!--<a style="color: red;" href={ initPathWithRedirectParam }>init</a>-->
                 { description }
               </div>
+              { js }
             </body>
           </html>
 
@@ -210,9 +279,9 @@ class Plugin(implicit app: Application) extends play.api.Plugin
           (dbName, flyway) <- flyways
           path = s"/@flyway/${dbName}"
         } yield {
-          <div>
-            <a href={ path }>{ dbName }</a>
-          </div>
+          <ul>
+            <li><a href={ path }>{ dbName }</a></li>
+          </ul>
         }
 
         val html =
@@ -222,11 +291,14 @@ class Plugin(implicit app: Application) extends play.api.Plugin
               { css }
             </head>
             <body>
-              <h1><a href="/@flyway">play-flway</a></h1>
-              <a href="/">&lt;&lt; Back to app</a>
+              { header }
               <div class="container">
-                { links }
+                <a href="/">&lt;&lt; Back to app</a>
+                <div class="well">
+                  { links }
+                </div>
               </div>
+              { js }
             </body>
           </html>
 

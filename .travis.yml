@@ -1,0 +1,13 @@
+language: scala
+
+jdk:
+  - oraclejdk7
+  - oraclejdk8
+
+scala:
+  - 2.10.4
+  - 2.11.1
+
+script:
+  - sbt ++$TRAVIS_SCALA_VERSION playapp/test
+

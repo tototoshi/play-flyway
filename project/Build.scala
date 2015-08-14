@@ -4,45 +4,48 @@ import Keys._
 
 object ApplicationBuild extends Build {
 
+  val scalatest = "org.scalatest" %% "scalatest" % "2.1.5" % "test"
+
   lazy val plugin = Project (
     id = "plugin",
-    base = file ("plugin"),
-    settings = Defaults.defaultSettings ++ Seq (
+    base = file ("plugin")
+  ).settings(
+    Seq(
       name := "play-flyway",
       organization := "com.github.tototoshi",
-      version := "1.0.4",
-      scalaVersion := "2.10.0",
+      version := "1.2.2-2.2.x",
+      scalaVersion := "2.10.4",
+      //crossScalaVersions := scalaVersion.value :: "2.11.1" :: Nil,
       resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/",
       libraryDependencies ++= Seq(
-        "com.typesafe.play" %% "play" % "2.2.0" % "provided",
-        "com.googlecode.flyway" % "flyway-core" % "2.3",
-        "org.scalatest" %% "scalatest" % "2.0" % "test"
+        "com.typesafe.play" %% "play" % "2.2.3" % "provided",
+        "org.flywaydb" % "flyway-core" % "3.2.1",
+        scalatest
       ),
       scalacOptions ++= Seq("-language:_", "-deprecation")
-    ) ++ scalariformSettings ++ publishingSettings
-
+    ) ++ scalariformSettings ++ publishingSettings :_*
   )
 
   val appDependencies = Seq(
     "com.h2database" % "h2" % "[1.3,)",
     "postgresql" % "postgresql" % "9.1-901.jdbc4",
-    "com.github.seratch" %% "scalikejdbc" % "1.5.2" % "test",
-    "com.github.seratch" %% "scalikejdbc-interpolation" % "1.5.2" % "test",
-    "com.github.seratch" %% "scalikejdbc-play-plugin" % "1.5.2" % "test",
-    "org.scalatest" %% "scalatest" % "1.9.1" % "test"
+    "org.scalikejdbc" %% "scalikejdbc-play-plugin" % "2.2.0" % "test",
+    scalatest
   )
 
   val playAppName = "playapp"
   val playAppVersion = "1.0-SNAPSHOT"
 
-  val playapp =
-    play.Project(
-      playAppName,
-      playAppVersion,
-      appDependencies,
-      path = file("playapp")
-    ).settings(scalariformSettings:_*)
-  .settings(resourceDirectories in Test <+= baseDirectory / "conf")
+  lazy val playapp = play.Project(
+    playAppName,
+    playAppVersion,
+    appDependencies,
+    path = file("playapp")
+  ).settings(scalariformSettings:_*)
+  .settings(
+    resourceDirectories in Test += baseDirectory.value / "conf",
+    scalaVersion := "2.10.4"
+  )
   .dependsOn(plugin)
   .aggregate(plugin)
 

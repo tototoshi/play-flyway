@@ -83,6 +83,7 @@ class Plugin(implicit app: Application) extends play.api.Plugin
       val flyway = new Flyway
       flyway.setDataSource(new DriverDataSource(getClass.getClassLoader, configuration.driver, configuration.url, configuration.user, configuration.password))
       flyway.setLocations(migrationFilesLocation)
+      flyway.setOutOfOrder(configReader.getOutOfOrder)
       flyway.setValidateOnMigrate(validateOnMigrate(dbName))
       flyway.setEncoding(encoding(dbName))
       if (initOnMigrate(dbName)) {
